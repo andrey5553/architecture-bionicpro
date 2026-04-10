@@ -1,5 +1,7 @@
 {
     "realm": "reports-realm",
+    "accessTokenLifespan": 120,
+    "accessTokenLifespanForImplicitFlow": 120,
     "enabled": true,
     "roles": {
       "realm": [
@@ -127,8 +129,12 @@
         "clientId": "reports-api",
         "enabled": true,
         "clientAuthenticatorType": "client-secret",
-        "secret": "oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq", 
-        "bearerOnly": true
+        "secret": "oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq",
+        "bearerOnly": false,
+        "publicClient": false,
+        "serviceAccountsEnabled": true,
+        "directAccessGrantsEnabled": true,
+        "standardFlowEnabled": true
       }
     ]
   }
