@@ -26,7 +26,9 @@ else
   echo 'WARNING: Could not get component ID'
 fi
 
+# Настраиваем OTP только для user1
+echo 'Configuring OTP for user1...'
+/tmp/setup-otp-user1.sh
+
 echo 'Import finished!'
 exit 0
-
-

@@ -90,11 +90,12 @@ services:
       - ./keycloak/ldap-component.json:/tmp/ldap-component.json
       - ./keycloak/ldap-role-mapper.json:/tmp/ldap-role-mapper.json
       - ./keycloak/import.sh:/tmp/import.sh
+      - ./keycloak/setup-otp-user1.sh:/tmp/setup-otp-user1.sh
     depends_on:
       - keycloak
     entrypoint: /bin/bash
     command: /tmp/import.sh
-    
+
   backend:
     build:
       context: ./backend/bionicpro-auth

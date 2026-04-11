@@ -16,8 +16,11 @@
       "email": "user1@example.com",
       "firstName": "User",
       "lastName": "One",
-      "credentials": [{ "type": "password", "value": "password123", "temporary": false }],
-      "realmRoles": ["user"]
+      "credentials": [
+        { "type": "password", "value": "password123", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "requiredActions": ["CONFIGURE_TOTP"]
     },
     {
       "username": "admin1",
@@ -25,7 +28,9 @@
       "email": "admin1@example.com",
       "firstName": "Admin",
       "lastName": "One",
-      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "credentials": [
+        { "type": "password", "value": "admin123", "temporary": false }
+      ],
       "realmRoles": ["administrator"]
     }
   ],

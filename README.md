@@ -125,4 +125,34 @@
 
   Теперь система поддерживает аутентификацию через LDAP для пользователей из другого представительства, с правильным маппингом ролей!
 
+  ### Задача 5. Настройка MFA.
+
+    Настройка OTP только для user1, остальные пользователи будут входить без OTP.
+    1. Убираем глобальную OTP политику и оставляем OTP только для user1 это проделываем в [Файл](/src/keycloak/realm-clean.json)
+    2. Создаем keycloak/setup-otp-user1.sh (только для user1)
+    3. Обновляем import.sh
+    4. Обновляем docker-compose.yml для keycloak-import (прокидываем скрипт - ./keycloak/setup-otp-user1.sh:/tmp/setup-otp-user1.sh)
+    5. перезапускаем контейнеры
+      docker-compose down -v
+      docker-compose up -d --build
+      Также лучше после перезапустить keycloak-import, так как keycloak стартует долго и есть шансы получить ошибку на этапе импорта
+      делаем вот так:
+      ```
+      docker-compose stop keycloak-import
+      docker-compose rm -f keycloak-import
+      docker-compose up -d keycloak-import
+      docker-compose logs -f keycloak-import (проверяем логи)
+      [Вот что будет при успешном запуске в логах](/Task1/part5/images/1%20лог%20keycloak-import.png)
+      ```
+    6. Проверяем, что все получилось, открываем http://localhost:8080/realms/reports-realm/account
+    [Страница входа keyclock](/Task1/part5/images/2%20keycloak%20вход%20user1.png)
+    [Аутентификатор](/Task1/part5/images/3%20keycloak%20установка%20аутентификатора.png) 
+    [Вход после отправки кода через аутентификатор](/Task1/part5/images/4%20вход%20после%20прохождения%20аутентификации.png)
+
+    Результат:
+    user1 при первом входе обязан настроить OTP. После настройки OTP, вход без кода из приложения невозможен admin1 и другие пользователи входят как обычно LDAP пользователи также не требуют OTP (если не настроить отдельно).
+
+
+
   
+
