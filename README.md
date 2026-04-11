@@ -152,6 +152,49 @@
     Результат:
     user1 при первом входе обязан настроить OTP. После настройки OTP, вход без кода из приложения невозможен admin1 и другие пользователи входят как обычно LDAP пользователи также не требуют OTP (если не настроить отдельно).
 
+  ### Задача 6. Добавление OAuth 2.0 от Яндекс ID.
+
+    1. Используя механизм Identity Brokering, реализуйте аутентификацию пользователей через внешний Identity Prodider Яндекс ID. Обратите внимание, что сервис протезов получает данные профиля пользователя из Яндекса.
+    2. После аутентификации сервис должен спрашивать пользователя о разрешении использовать данные.
+    3. Сервис должен запрашивать у Яндекса данные профиля и сохранять их в БД.
+
+    -----
+    Успешно произвёл эти манипуляции в ручном режиме, но не стал добавлять это в сервис, т.к. это не может работать во время ревью: для работы нужен "ClientID" и "Client secret", которые могли бы скомпроментировать мой аккаунт. Выкладывание секрета в публичный репозиторий нежелательно, потому что им может воспользоваться злоумышленник, а без секрета конфигурация не заработает.
+
+    Но концепция ясна: настраиваем Keycloak на работу с Яндексом, и разрешаем конфликты scope (openid, email, profile -> login:info login:email). Либо через прокси-приложение, которое бы переправляло запросы с Keycloak в Яндекс и обратно, либо через mapper этих самых scope'ов в конфигурации Keycloak. Первое проще, второе оптимальнее.
+
+    Если коротко, надо создать файл настройки Яндекс ID провайдера
+    ```json
+    {
+    "alias": "yandex",
+    "displayName": "Yandex ID",
+    "providerId": "oidc",
+    "enabled": true,
+    "storeToken": true,
+    "addReadTokenRoleOnCreate": true,
+    "trustEmail": true,
+    "linkOnly": false,
+    "config": {
+        "clientId": "ВАШ_CLIENT_ID",
+        "clientSecret": "ВАШ_CLIENT_SECRET",
+        "authorizationUrl": "https://oauth.yandex.ru/authorize",
+        "tokenUrl": "https://oauth.yandex.ru/token",
+        "userInfoUrl": "https://login.yandex.ru/info",
+        "logoutUrl": "https://oauth.yandex.ru/logout",
+        "defaultScope": "login:info login:email",
+        "clientAuthMethod": "client_secret_post",
+        "userInfoMappingJson": "{\"login\":\"username\", \"email\":\"email\", \"first_name\":\"firstName\", \"last_name\":\"lastName\"}",
+        "syncMode": "FORCE",
+        "guiOrder": "1",
+        "validateSignature": "false",
+        "useJwksUrl": "false"
+        }
+    }
+    ```
+    Ну и далее импортировать настройки в keycloak
+    Настроить бек и фронт для работы
+
+    
 
 
   
