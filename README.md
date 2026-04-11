@@ -89,4 +89,40 @@
   * [Отчет с авторизацией пользователя без refresh token](/Task1/part3/6%20получение%20отчета%20о%20пользователе%20с%20использование%20авторизации.png)
   * [Отчет с авторизацией пользователя с указанием времени жизни access token](/Task1/part3/7%20время%20жизни%20токена%20в%20отчете.png)
   * [Отчет с авторизацией пользователя после окончания таймаута access token (refresh token в действии)](/Task1/part3/8%20время%20жизни%20токена%20в%20отчете%20(после%20таймаута).png)
+
+
+  ### Задача 4. Добавьте LDAP для возможности получения данных о пользователях представительства BionicPRO в другой стране.
+
+    1. Очищаем список контейнеров в docker
+    2. Загружаем заново все контейнеры  docker-compose up -d
+    3. Проверяем логи импорта  docker-compose logs -f keycloak-import
+    [Лог keycloak-import](/Task1/part4/images/логи%20keycloak-import%20об%20успешном%20создании%20ldap%20конфигурации%20в%20keycloak%20realm-export.png)
+  
+    # Проверка что пользователи из LDAP загрузились
+    docker exec -it keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin
+    docker exec -it keycloak /opt/keycloak/bin/kcadm.sh get users -r reports-realm
+
+    Keycloak Admin: http://localhost:8080 (admin/admin)
+    PHP LDAP Admin: http://localhost:8090 (логин: cn=admin,dc=example,dc=com, пароль: admin)
+    Frontend: http://localhost:3000
+  
+    Тестовые пользователи из LDAP:
+    john.doe / password (имеет роль prothetic_user)
+    jane.smith / password (имеет роль user)
+    alex.johnson / password (имеет роль prothetic_user)
+
+    Локальные пользователи Keycloak:
+    user1 / password123 (роль user)
+    user2 / password123 (роль user)
+    admin1 / admin123 (роль administrator)
+  
+    Особенности настройки маппинга ролей:
+    В конфигурации LDAP маппера настроено следующее:
+      * Роли из LDAP (cn=user, cn=prothetic_user) маппятся на роли в Keycloak realm
+      * Пользователь jane.smith получает роль user
+      * Пользователи john.doe и alex.johnson получают роль prothetic_user
+    Маппинг работает в режиме READ_ONLY - изменения ролей из Keycloak не будут писаться обратно в LDAP
+
+  Теперь система поддерживает аутентификацию через LDAP для пользователей из другого представительства, с правильным маппингом ролей!
+
   

@@ -1,0 +1,17 @@
+{
+  "name": "role-mapper",
+  "providerId": "role-ldap-mapper",
+  "providerType": "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
+  "parentId": "PARENT_ID_PLACEHOLDER",
+  "config": {
+    "roles.dn": ["ou=Groups,dc=example,dc=com"],
+    "role.name.ldap.attribute": ["cn"],
+    "role.object.classes": ["groupOfNames"],
+    "membership.ldap.attribute": ["member"],
+    "membership.user.ldap.attribute": ["uid"],
+    "mode": ["READ_ONLY"],
+    "role.name.keycloak.template": ["${NAME}"],
+    "client.id": ["account"],
+    "use.realm.roles.mapping": ["true"]
+  }
+}

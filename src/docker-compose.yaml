@@ -11,6 +11,51 @@ services:
       - "5433:5432"
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    environment:
+      LDAP_ORGANISATION: "BionicPRO"
+      LDAP_DOMAIN: "example.com"
+      LDAP_ADMIN_PASSWORD: "admin"
+      LDAP_CONFIG_PASSWORD: "admin"
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "true"
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+      - ./ldap/config.ldif:/container/service/slapd/assets/config/bootstrap/ldif/50-config.ldif
+    networks:
+      - app-network
+    command: --copy-service --loglevel debug
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost:389 -D cn=admin,dc=example,dc=com -w admin -b dc=example,dc=com"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8090:80"
+    depends_on:
+      openldap:
+        condition: service_healthy
+    networks:
+      - app-network
 
   keycloak:
     image: quay.io/keycloak/keycloak:21.1
@@ -26,34 +71,30 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - keycloak_db
+      keycloak_db:
+        condition: service_healthy
+      openldap:
+        condition: service_healthy
     networks:
       - app-network
 
   keycloak-import:
     image: quay.io/keycloak/keycloak:21.1
-    depends_on:
-      - keycloak
     networks:
       - app-network
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     volumes:
-      - ./keycloak/realm-export.json:/tmp/realm-export.json
-    entrypoint: >
-      /bin/bash -c "
-        echo 'Waiting for Keycloak to start...' &&
-        sleep 15 &&
-        echo 'Importing realm...' &&
-        /opt/keycloak/bin/kcadm.sh config truststore --trustpass $KEYCLOAK_TRUSTSTORE_PASSWORD &&
-        /opt/keycloak/bin/kcadm.sh config credentials --server http://keycloak:8080 --realm master --user admin --password admin &&
-        /opt/keycloak/bin/kcadm.sh create realms -f /tmp/realm-export.json ||
-        /opt/keycloak/bin/kcadm.sh update realms/reports-realm -f /tmp/realm-export.json &&
-        echo 'Import completed!' &&
-        exit 0
-      "
-
+      - ./keycloak/realm-clean.json:/tmp/realm-clean.json
+      - ./keycloak/ldap-component.json:/tmp/ldap-component.json
+      - ./keycloak/ldap-role-mapper.json:/tmp/ldap-role-mapper.json
+      - ./keycloak/import.sh:/tmp/import.sh
+    depends_on:
+      - keycloak
+    entrypoint: /bin/bash
+    command: /tmp/import.sh
+    
   backend:
     build:
       context: ./backend/bionicpro-auth
@@ -75,7 +116,6 @@ services:
       - Session__TimeoutMinutes=60
       - Session__CookieName=KeycloakSession
     depends_on:
-      - keycloak
       - keycloak-import
     networks:
       - app-network
@@ -98,7 +138,9 @@ services:
 
 volumes:
   postgres-keycloak-data:
-  aspnet-keys: 
+  aspnet-keys:
+  ldap-data:
+  ldap-config:
 
 networks:
   app-network:
