@@ -201,7 +201,43 @@
   [Диаграмма контейнеров C4 drawio](/Task2/part1/диаграмма%20контейнеров%20C4.drawio)
   [Диаграмма контейнеров C4 png](/Task2/part1/диаграмма%20контейнеров%20C4.png)
 
+  ### Задача 2. Разработать Airflow DAG и настроить его на запуск по расписанию
+  Шаг 1. Создание SQL-файлов для CRM и OLAP. 
+  Каталог `sql`, в котором создадим файлы:
+    - `init_crm.sql` для инициализации CRM 
+    - `init_clickhouse.sql` для инициализации OLAP
 
+  Файл `init_crm.sql` содержит пользователей, которые точно совпадают с конфигурацией Keycloak
+
+  Шаг 2. Создание Airflow DAG. 
+  Разместим решение в каталоге проекта `airflow`.
+  Создадим `Dockerfile` для развертывания Airflow.
+  Создадим подкаталог `dags` и в нем файл DAG `etl_crm_to_olap.py`.
+
+  При запуске DAG в параметре schedule_interval задается [CRON-выражение.](https://yandex.cloud/ru/docs/serverless-integrations/concepts/cron) таким образом выполняется требование запуска по расписанию.
+
+  Шаг 3. Внесение изменений в docker-compose.yaml для запуска Airflow, CRM, OLAP.
+  В проекте представлен измененный файл `docker-compose.yaml`.
+
+  Шаг 4. Проверка работы Airflow DAG. 
+  1. Запустим Docker Compose 
+  ```docker-compose down -v```
+  ```docker-compose up -d --build```
+  
+  2. DAG будет выполнен. 
+  [Как достучаться в докере до clickhouse](/Task2/part2/1%20докер%20идем%20в%20clickhouse.png)
+  ```docker ps```
+  ```docker exec -it src-clickhouse-1 clickhouse-client```
+  ```select * from report_user_daily_mart;```
+
+  3. Проверить логи ClickHouse
+    ```docker-compose logs clickhouse``` 
+    [Логи контейнера с clickhouse](/Task2/part2/4%20логи%20запуска%20контейнера%20с%20clickhouse.png)
+  4. Открыть Airflow UI: http://localhost:8081 (Логин: admin, пароль: admin) [Скриншот](/Task2/part2/3%20UI%20aitflow.png)
+  5. Запустить DAG вручную (принудительно из веб интерфейса)
 
   
+  Успешный запуск DAG и результат
+  [Скриншот с результатом успешного запроса в OLAP по результатам выполнения DAG.](/Task2/part2/2%20витрина%20с%20результатами%20в%20clickhouse.png)
+
 
