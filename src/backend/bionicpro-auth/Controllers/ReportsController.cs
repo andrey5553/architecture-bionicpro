@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
+﻿using ClickHouse.Client.ADO.Parameters;
 using KeycloakAuthService.Models;
+using Microsoft.AspNetCore.Mvc;
+using System.Data;
+using System.Text.Json;
 
 namespace KeycloakAuthService.Controllers;
 
@@ -8,15 +10,19 @@ namespace KeycloakAuthService.Controllers;
 [Route("api/[controller]")]
 public class ReportsController : ControllerBase
 {
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ReportsController> _logger;
 
-    public ReportsController(ILogger<ReportsController> logger)
+    public ReportsController(
+        IConfiguration configuration,
+        ILogger<ReportsController> logger)
     {
+        _configuration = configuration;
         _logger = logger;
     }
 
     [HttpGet]
-    public IActionResult GetReport()
+    public async Task<IActionResult> GetReport()
     {
         _logger.LogInformation("=== GetReport START ===");
 
@@ -42,7 +48,7 @@ public class ReportsController : ControllerBase
                 tokenResponseJson.Length > 500 ? tokenResponseJson.Substring(0, 500) : tokenResponseJson);
 
             // Десериализуем токен с подробной обработкой ошибок
-            TokenResponse tokenResponse = null;
+            TokenResponse? tokenResponse = null;
             try
             {
                 var options = new JsonSerializerOptions
@@ -222,27 +228,119 @@ public class ReportsController : ControllerBase
             }
 
             // Генерация отчета
-            _logger.LogInformation("Report generated successfully for user: {Username}", username);
+
+            if (string.IsNullOrEmpty(username))
+            {
+                // Пробуем взять из токена
+                username = jwtToken?.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+            }
+
+            _logger.LogInformation("Fetching report for username: {Username}", username);
+
+            // Подключаемся к ClickHouse
+            _logger.LogInformation("Start report for username: {Username}", username);
+            var clickHouseReport = await GetUserReportFromClickHouse(username);
+
+            if (clickHouseReport == null)
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "No data found for user",
+                    user = username,
+                    report = new
+                    {
+                        avg_battery_level = 0,
+                        total_steps = 0,
+                        max_muscle_voltage = 0,
+                        errors_count = 0,
+                        last_activity_date = (DateTime?)null
+                    }
+                });
+            }
+
             return Ok(new
             {
                 success = true,
-                report = "Sensitive report data",
-                userRoles = roles,
                 user = username,
-                timestamp = DateTime.UtcNow,
-                message = "Access granted with prothetic_user role",
-                // НОВОЕ: Информация о токене для отладки
-                tokenInfo = new
-                {
-                    expiresAt = jwtToken.ValidTo,
-                    timeLeftSeconds = (int)(jwtToken.ValidTo - DateTime.UtcNow).TotalSeconds
-                }
+                report = clickHouseReport,
+                generated_at = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error in GetReport");
             return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Эмулирует работу генерации отчета на прямую из OLAP БД на текущую дату
+    /// </summary>
+    /// <param name="username"></param>
+    /// <returns></returns>
+    private async Task<object> GetUserReportFromClickHouse(string username)
+    {
+        try
+        {
+            // Строка подключения из конфигурации
+            var connectionString = _configuration.GetConnectionString("ClickHouse");
+            _logger.LogInformation("connectionString: {ConnectionString}", connectionString);
+
+            using var connection = new ClickHouse.Client.ADO.ClickHouseConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Запрос к витрине report_user_daily_mart
+            // Для протезов - используем keycloak_username для поиска
+            var sql = @"
+                SELECT 
+                    report_date,
+                    avg_battery_level,
+                    total_steps,
+                    max_muscle_voltage,
+                    errors_count
+                FROM report_user_daily_mart
+                WHERE keycloak_username = {username:String} 
+                AND report_date = today() - 1
+                ORDER BY report_date DESC
+                LIMIT 30";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.Add(new ClickHouseDbParameter
+            {
+                ParameterName = "username",
+                Value = username
+            });
+
+            var results = new List<object>();
+            using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                results.Add(new
+                {
+                    report_date = reader.GetDateTime(0).ToString("yyyy-MM-dd"),
+                    avg_battery_level = reader.GetFloat(1),
+                    total_steps = Convert.ToInt32(reader.GetValue(2)),  // ← Int32
+                    max_muscle_voltage = reader.GetFloat(3),
+                    errors_count = Convert.ToInt32(reader.GetValue(4))  // ← Int32
+                });
+            }
+
+            _logger.LogInformation("Found {Count} report records for user {Username}", results.Count, username);
+
+            return new
+            {
+                daily_stats = results,
+                total_days = results.Count,
+                avg_daily_steps = results.Any() ? results.Average(r => ((dynamic)r).total_steps) : 0
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error querying ClickHouse for user {Username}", username);
+            throw;
         }
     }
 }

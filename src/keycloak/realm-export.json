@@ -33,7 +33,7 @@
             "temporary": false
           }
         ],
-        "realmRoles": ["user"]
+        "realmRoles": ["prothetic_user"]
       },
       {
         "username": "user2",
