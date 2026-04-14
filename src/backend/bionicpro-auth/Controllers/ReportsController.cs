@@ -301,7 +301,6 @@ public class ReportsController : ControllerBase
                     errors_count
                 FROM report_user_daily_mart
                 WHERE keycloak_username = {username:String} 
-                AND report_date = today() - 1
                 ORDER BY report_date DESC
                 LIMIT 30";
 
