@@ -7,6 +7,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Amazon.S3" Version="0.35.1" />
+		<PackageReference Include="AWSSDK.S3" Version="4.0.21.1" />
 		<PackageReference Include="ClickHouse.Client" Version="7.14.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />

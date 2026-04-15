@@ -1,0 +1,74 @@
+{
+  "daily_stats": [
+    {
+      "report_date": "2026-04-14",
+      "avg_battery_level": 93,
+      "total_steps": 29509,
+      "max_muscle_voltage": 33.9,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-14",
+      "avg_battery_level": 93,
+      "total_steps": 29509,
+      "max_muscle_voltage": 33.9,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-14",
+      "avg_battery_level": 93,
+      "total_steps": 29509,
+      "max_muscle_voltage": 33.9,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-13",
+      "avg_battery_level": 73.5,
+      "total_steps": 42958,
+      "max_muscle_voltage": 34.2,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-13",
+      "avg_battery_level": 73.5,
+      "total_steps": 42958,
+      "max_muscle_voltage": 34.2,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-13",
+      "avg_battery_level": 73.5,
+      "total_steps": 42958,
+      "max_muscle_voltage": 34.2,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-12",
+      "avg_battery_level": 57,
+      "total_steps": 16403,
+      "max_muscle_voltage": 34.4,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-12",
+      "avg_battery_level": 57,
+      "total_steps": 16403,
+      "max_muscle_voltage": 34.4,
+      "errors_count": 0
+    },
+    {
+      "report_date": "2026-04-12",
+      "avg_battery_level": 57,
+      "total_steps": 16403,
+      "max_muscle_voltage": 34.4,
+      "errors_count": 0
+    }
+  ],
+  "total_days": 9,
+  "avg_daily_steps": 29623.333333333332,
+  "summary": {
+    "total_steps": 266610,
+    "avg_battery": 74.5,
+    "total_errors": 0
+  }
+}

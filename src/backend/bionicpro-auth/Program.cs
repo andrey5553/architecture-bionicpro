@@ -1,6 +1,9 @@
-﻿using KeycloakAuthService.Middleware;
+﻿using Amazon.S3;
+using KeycloakAuthService.Middleware;
 using KeycloakAuthService.Services;
+using KeycloakAuthService.Settings;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +49,23 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
+});
+
+builder.Services.Configure<MinioOptions>(builder.Configuration.GetSection("Minio"));
+builder.Services.Configure<CdnOptions>(builder.Configuration.GetSection("CDN"));
+
+// Регистрация S3 клиента
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<MinioOptions>>().Value;
+    var config = new AmazonS3Config
+    {
+        ServiceURL = options.Endpoint,
+        ForcePathStyle = true, // Важно для Minio!
+        UseHttp = !options.UseSSL
+    };
+
+    return new AmazonS3Client(options.AccessKey, options.SecretKey, config);
 });
 
 var app = builder.Build();
