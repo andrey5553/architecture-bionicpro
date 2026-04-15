@@ -101,11 +101,14 @@ services:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: clickhouse_password
+      ALLOW_EMPTY_PASSWORD: "yes"
     ports:
       - "8123:8123"
       - "9000:9000"
     volumes:
       - ./sql/init_clickhouse.sql:/docker-entrypoint-initdb.d/init_clickhouse.sql
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./sql/init-crm-connect.sql:/docker-entrypoint-initdb.d/init-crm-connect.sql
     ulimits:
       nofile:
         soft: 262144
@@ -164,7 +167,7 @@ services:
     command: bash -c "airflow webserver & airflow scheduler"
     depends_on:
       airflow-init:
-        condition: service_completed_successfully  # Ждем полного завершения инициализации
+        condition: service_completed_successfully
       airflow_db:
         condition: service_healthy
       crm_db:
@@ -220,7 +223,7 @@ services:
     depends_on:
       - keycloak-import
       - minio
-      - nginx-cdn 
+      - nginx-cdn
     networks:
       - app-network
 
@@ -258,12 +261,12 @@ services:
       /bin/sh -c "
         mkdir -p /data/reports &&
         /usr/bin/minio server /data --console-address ':9001'
-      "   
+      "
     healthcheck:
       test: ["CMD", "sh", "-c", "echo > /dev/tcp/localhost/9000"]
       interval: 30s
       timeout: 10s
-      retries: 5     
+      retries: 5
 
   nginx-cdn:
     image: nginx:alpine
@@ -284,13 +287,96 @@ services:
       timeout: 10s
       retries: 3
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+    ports:
+      - "9092:9092"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  debezium:
+    image: debezium/connect:2.5
+    container_name: debezium
+    depends_on:
+      kafka:
+        condition: service_healthy
+      crm_db:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: debezium_connect_configs
+      OFFSET_STORAGE_TOPIC: debezium_connect_offsets
+      STATUS_STORAGE_TOPIC: debezium_connect_statuses
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    ports:
+      - "8083:8083"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  debezium-setup:
+    image: curlimages/curl:latest
+    container_name: debezium-setup
+    volumes:
+      - ./debezium:/debezium
+    command:
+      - sh
+      - -c
+      - "sleep 30 && curl -X POST http://debezium:8083/connectors -H 'Content-Type: application/json' -d @/debezium/register-postgres-connector.json"
+    depends_on:
+      debezium:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
 volumes:
   postgres-keycloak-data:
   aspnet-keys:
   ldap-data:
   ldap-config:
   minio-data:
-  nginx-cache:    
+  nginx-cache:
 
 networks:
   app-network:

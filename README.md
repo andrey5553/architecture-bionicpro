@@ -348,5 +348,26 @@
     # Через Nginx (CDN)
     ```curl http://localhost:8082/reports/prothetic1/2026-04-15.json ```
 
+## Задание 4. Повышение оперативности и стабильности работы CRM
+  
+  ### Реализуйте механизм Change Data Capture (CDC) для отслеживания изменений в таблицах БД CRM. В качестве инструмента CDC используйте Debezium. С теорией по Debezium вы можете ознакомиться в спринте 8, теме 2, уроке 4. С документацией Postgres Debezium Connector вы можете ознакомиться в статье на официальном сайте. Настройте Debezium на отправку данных в топик Kafka. Настройте приём данных из топика Kafka в OLAP БД Clickhouse с помощью механизма KafkaEngine. Подготовьте витрину для отчётности, объединив данные при помощи MaterializedView в Clickhouse. Переведите сервис API на новую витрину.
+
+  1. Реализован механизм Change Data Capture (CDC) [Debezium] (debezium/register-crm-connector.json).
+
+  2. Настроен Debezium на отправку данных в топик Kafka. Сделано в [init-crm-connect.sql](olap-db/init-crm-connect.sql).
+
+  3. Настроен приём данных из топика Kafka в OLAP БД Clickhouse с помощью механизма KafkaEngine.
+    Сделано в [init-crm-connect.sql](olap-db/init-crm-connect.sql).
+
+  4. Витрина для отчётности, объединение данных при помощи MaterializedView в Clickhouse.
+    Сделано в [crm_cdc_to_clickhouse.py](airflow/dags/crm_cdc_to_clickhouse.py).
+
+  5. Сервис через minio, так что витрина данных уже хранится отдельно.
+
+  [Данные из PostgreSQL успешно попали в ClickHouse через Debezium + Kafka](/Task4/images/5%20тестовые%20данные%20в%20crm%20и%20далее%20едут%20в%20clickhouse.png)
+  [Статус коннектора Debezium](/Task4/images/1%20статус%20коннектора%20Debezium.png)
+  [Список торпиков kafka](/Task4/images/2%20список%20всех%20топиков%20в%20kafka.png)
+  [Таблицы и данные crm + kafka](/Task4/images/3%20таблицы%20и%20данные%20в%20crm%20и%20clickhouse.png)
+  [Данные в kafka](/Task4/images/4%20данные%20дошли%20до%20kafka.png)
 
 

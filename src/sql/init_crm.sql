@@ -14,3 +14,13 @@ INSERT INTO clients (keycloak_username, full_name, email, prosthesis_serial_numb
 ('user2', 'User Two', 'user2@example.com', 'SN-USER-02'),
 ('prothetic1', 'Prothetic One', 'prothetic1@example.com', 'SN-PRO-01'),
 ('prothetic2', 'Prothetic Two', 'prothetic2@example.com', 'SN-PRO-02');
+
+-- Добавляем колонки для CDC в существующую таблицу
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS age INTEGER DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS gender VARCHAR(10) DEFAULT '';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS country VARCHAR(50) DEFAULT '';
+
+-- Обновляем существующие записи
+UPDATE customers SET age = 30, gender = 'male', country = 'Russia' WHERE id = 1;
+UPDATE customers SET age = 25, gender = 'female', country = 'Russia' WHERE id = 2;
+UPDATE customers SET age = 35, gender = 'male', country = 'Russia' WHERE id = 3;

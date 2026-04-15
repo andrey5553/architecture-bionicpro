@@ -10,7 +10,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 USER airflow
-
+COPY requirements.txt /tmp/requirements.txt
 RUN pip install apache-airflow-providers-postgres clickhouse-driver[lz4]
 
 
