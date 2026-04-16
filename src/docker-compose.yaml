@@ -1,0 +1,383 @@
+services:
+  keycloak_db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
+    volumes:
+      - postgres-keycloak-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    environment:
+      LDAP_ORGANISATION: "BionicPRO"
+      LDAP_DOMAIN: "example.com"
+      LDAP_ADMIN_PASSWORD: "admin"
+      LDAP_CONFIG_PASSWORD: "admin"
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "true"
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+      - ./ldap/config.ldif:/container/service/slapd/assets/config/bootstrap/ldif/50-config.ldif
+    networks:
+      - app-network
+    command: --copy-service --loglevel debug
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost:389 -D cn=admin,dc=example,dc=com -w admin -b dc=example,dc=com"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8090:80"
+    depends_on:
+      openldap:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:21.1
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+    command: 
+      - start-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
+      openldap:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  crm_db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password
+      POSTGRES_DB: crm_db
+    volumes:
+      - ./sql/init_crm.sql:/docker-entrypoint-initdb.d/init_crm.sql
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_user -d crm_db"]
+      interval: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse_password
+      ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./sql/init_clickhouse.sql:/docker-entrypoint-initdb.d/init_clickhouse.sql
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./sql/init-crm-connect.sql:/docker-entrypoint-initdb.d/init-crm-connect.sql
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --password clickhouse_password --query 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network
+
+  airflow_db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  airflow-init:
+    build: 
+      context: ./airflow
+      dockerfile: Dockerfile
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow_db:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: bash -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
+    depends_on:
+      airflow_db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  airflow:
+    build: 
+      context: ./airflow
+      dockerfile: Dockerfile
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow_db:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_CONN_CRM_POSTGRES=postgresql://crm_user:crm_password@crm_db:5432/crm_db
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    ports:
+      - "8081:8080"
+    command: bash -c "airflow webserver & airflow scheduler"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow_db:
+        condition: service_healthy
+      crm_db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  keycloak-import:
+    image: quay.io/keycloak/keycloak:21.1
+    depends_on:
+      - keycloak
+    networks:
+      - app-network
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/realm-export.json:/tmp/realm-export.json
+    entrypoint: >
+      /bin/bash -c "
+        echo 'Waiting for Keycloak to start...' &&
+        sleep 75 &&
+        echo 'Importing realm...' &&
+        /opt/keycloak/bin/kcadm.sh config credentials --server http://keycloak:8080 --realm master --user admin --password admin &&
+        /opt/keycloak/bin/kcadm.sh create realms -f /tmp/realm-export.json ||
+        /opt/keycloak/bin/kcadm.sh update realms/reports-realm -f /tmp/realm-export.json &&
+        echo 'Import completed!' &&
+        exit 0
+      "
+
+  backend:
+    build:
+      context: ./backend/bionicpro-auth
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8080"
+    volumes:
+      - aspnet-keys:/root/.aspnet/DataProtection-Keys
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Keycloak__BaseUrl=http://keycloak:8080
+      - Keycloak__Realm=reports-realm
+      - Keycloak__ClientId=reports-api
+      - Keycloak__ClientSecret=oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq
+      - Keycloak__TokenEndpoint=/protocol/openid-connect/token
+      - Keycloak__LogoutEndpoint=/protocol/openid-connect/logout
+      - Keycloak__UserInfoEndpoint=/protocol/openid-connect/userinfo
+      - Session__TimeoutMinutes=60
+      - Session__CookieName=KeycloakSession
+    depends_on:
+      - keycloak-import
+      - minio
+      - nginx-cdn
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_KEYCLOAK_URL=http://localhost:8080
+      - REACT_APP_KEYCLOAK_REALM=reports-realm
+      - REACT_APP_KEYCLOAK_CLIENT_ID=reports-frontend
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - app-network
+    entrypoint: >
+      /bin/sh -c "
+        mkdir -p /data/reports &&
+        /usr/bin/minio server /data --console-address ':9001'
+      "
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo > /dev/tcp/localhost/9000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  nginx-cdn:
+    image: nginx:alpine
+    container_name: nginx-cdn
+    volumes:
+      - ./nginx/cdn.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx-cache:/var/cache/nginx
+    ports:
+      - "8082:80"
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+    ports:
+      - "9092:9092"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  debezium:
+    image: debezium/connect:2.5
+    container_name: debezium
+    depends_on:
+      kafka:
+        condition: service_healthy
+      crm_db:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: debezium_connect_configs
+      OFFSET_STORAGE_TOPIC: debezium_connect_offsets
+      STATUS_STORAGE_TOPIC: debezium_connect_statuses
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    ports:
+      - "8083:8083"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  debezium-setup:
+    image: curlimages/curl:latest
+    container_name: debezium-setup
+    volumes:
+      - ./debezium:/debezium
+    command:
+      - sh
+      - -c
+      - "sleep 30 && curl -X POST http://debezium:8083/connectors -H 'Content-Type: application/json' -d @/debezium/register-postgres-connector.json"
+    depends_on:
+      debezium:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
+volumes:
+  postgres-keycloak-data:
+  aspnet-keys:
+  ldap-data:
+  ldap-config:
+  minio-data:
+  nginx-cache:
+
+networks:
+  app-network:
+    driver: bridge

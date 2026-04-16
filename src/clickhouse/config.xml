@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<clickhouse>
+    <kafka>
+        <auto_offset_reset>earliest</auto_offset_reset>
+        <enable_auto_commit>1</enable_auto_commit>
+        <auto_commit_interval_ms>5000</auto_commit_interval_ms>
+    </kafka>
+</clickhouse>

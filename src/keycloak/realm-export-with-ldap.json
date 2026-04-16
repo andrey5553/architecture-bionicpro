@@ -1,0 +1,351 @@
+{
+  "realm": "reports-realm",
+  "accessTokenLifespan": 120,
+  "accessTokenLifespanForImplicitFlow": 120,
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Regular user role"
+      },
+      {
+        "name": "administrator",
+        "description": "Administrator role"
+      },
+      {
+        "name": "prothetic_user",
+        "description": "Prothetic user role with report access"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "user1",
+      "enabled": true,
+      "email": "user1@example.com",
+      "firstName": "User",
+      "lastName": "One",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "user2",
+      "enabled": true,
+      "email": "user2@example.com",
+      "firstName": "User",
+      "lastName": "Two",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin1",
+      "enabled": true,
+      "email": "admin1@example.com",
+      "firstName": "Admin",
+      "lastName": "One",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["administrator"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "reports-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "reports-api",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "oNwoLQdvJAvRcL89SydqCWCe5ry1jMgq",
+      "bearerOnly": false,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true
+    }
+  ],
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "id": "ldap-provider",
+        "name": "ldap",
+        "providerId": "ldap",
+        "providerType": "org.keycloak.storage.UserStorageProvider",
+        "parentId": "reports-realm",
+        "config": {
+          "priority": [
+            "0"
+          ],
+          "enabled": [
+            "true"
+          ],
+          "allowedProtocols": [],
+          "importEnabled": [
+            "true"
+          ],
+          "syncRegistrations": [
+            "false"
+          ],
+          "editMode": [
+            "READ_ONLY"
+          ],
+          "vendor": [
+            "other"
+          ],
+          "usernameLDAPAttribute": [
+            "uid"
+          ],
+          "rdnLDAPAttribute": [
+            "uid"
+          ],
+          "uuidLDAPAttribute": [
+            "entryUUID"
+          ],
+          "userObjectClasses": [
+            "inetOrgPerson, organizationalPerson"
+          ],
+          "connectionUrl": [
+            "ldap://openldap:389"
+          ],
+          "usersDn": [
+            "ou=People,dc=example,dc=com"
+          ],
+          "authType": [
+            "simple"
+          ],
+          "bindDn": [
+            "cn=admin,dc=example,dc=com"
+          ],
+          "bindCredential": [
+            "admin"
+          ],
+          "searchScope": [
+            "1"
+          ],
+          "useTruststoreSpi": [
+            "ldapsOnly"
+          ],
+          "connectionPooling": [
+            "true"
+          ],
+          "pagination": [
+            "true"
+          ],
+          "allowKerberosAuthentication": [
+            "false"
+          ],
+          "serverPrincipal": [],
+          "keyTab": [],
+          "kerberosRealm": [],
+          "debug": [
+            "false"
+          ],
+          "useKerberosForPasswordAuthentication": [
+            "false"
+          ],
+          "validatePasswordPolicy": [
+            "false"
+          ],
+          "alwaysReadValueFromLDAP": [
+            "false"
+          ],
+          "batchSizeForSync": [
+            "1000"
+          ],
+          "fullSyncPeriod": [
+            "-1"
+          ],
+          "changedSyncPeriod": [
+            "-1"
+          ],
+          "lastSync": [
+            "0"
+          ],
+          "cachePolicy": [
+            "DEFAULT"
+          ],
+          "evictionDay": [],
+          "evictionHour": [],
+          "evictionMinute": [],
+          "maxLifespan": []
+        }
+      }
+    ],
+    "org.keycloak.storage.UserStorageProvider.mapper": [
+      {
+        "id": "ldap-full-name-mapper",
+        "name": "full-name-mapper",
+        "providerId": "full-name-ldap-mapper",
+        "providerType": "org.keycloak.storage.UserStorageProvider.mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "ldapFullNameAttribute": [
+            "cn"
+          ],
+          "readOnly": [
+            "true"
+          ],
+          "writeOnly": [
+            "false"
+          ]
+        }
+      },
+      {
+        "id": "ldap-user-attribute-email-mapper",
+        "name": "email-mapper",
+        "providerId": "user-attribute-ldap-mapper",
+        "providerType": "org.keycloak.storage.UserStorageProvider.mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "ldapAttribute": [
+            "mail"
+          ],
+          "isMandatoryInLDAP": [
+            "false"
+          ],
+          "readOnly": [
+            "true"
+          ],
+          "alwaysReadValueFromLDAP": [
+            "false"
+          ],
+          "userModelAttribute": [
+            "email"
+          ]
+        }
+      },
+      {
+        "id": "ldap-user-attribute-firstname-mapper",
+        "name": "first-name-mapper",
+        "providerId": "user-attribute-ldap-mapper",
+        "providerType": "org.keycloak.storage.UserStorageProvider.mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "ldapAttribute": [
+            "cn"
+          ],
+          "isMandatoryInLDAP": [
+            "false"
+          ],
+          "readOnly": [
+            "true"
+          ],
+          "alwaysReadValueFromLDAP": [
+            "false"
+          ],
+          "userModelAttribute": [
+            "firstName"
+          ]
+        }
+      },
+      {
+        "id": "ldap-user-attribute-lastname-mapper",
+        "name": "last-name-mapper",
+        "providerId": "user-attribute-ldap-mapper",
+        "providerType": "org.keycloak.storage.UserStorageProvider.mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "ldapAttribute": [
+            "sn"
+          ],
+          "isMandatoryInLDAP": [
+            "false"
+          ],
+          "readOnly": [
+            "true"
+          ],
+          "alwaysReadValueFromLDAP": [
+            "false"
+          ],
+          "userModelAttribute": [
+            "lastName"
+          ]
+        }
+      },
+      {
+        "id": "ldap-role-mapper",
+        "name": "role-mapper",
+        "providerId": "role-ldap-mapper",
+        "providerType": "org.keycloak.storage.UserStorageProvider.mapper",
+        "parentId": "ldap-provider",
+        "config": {
+          "rolesDn": [
+            "ou=Groups,dc=example,dc=com"
+          ],
+          "roleNameLdapAttribute": [
+            "cn"
+          ],
+          "roleObjectClasses": [
+            "groupOfNames"
+          ],
+          "membershipLdapAttribute": [
+            "member"
+          ],
+          "membershipUserLdapAttribute": [
+            "uid"
+          ],
+          "membershipUserDn": [
+            "uid=${ALIAS},ou=People,dc=example,dc=com"
+          ],
+          "useRealmRolesMapping": [
+            "true"
+          ],
+          "clientId": [],
+          "memberofLdapAttribute": [],
+          "mode": [
+            "READ_ONLY"
+          ],
+          "userRolesRetrieveStrategy": [
+            "LOAD_ROLES_BY_MEMBER_ATTRIBUTE"
+          ],
+          "memberAttrUserDnRetrieveStrategy": [
+            "USE_DN"
+          ],
+          "roleMappingUseAppRoleTemplateDescription": [
+            "false"
+          ],
+          "searchScope": [
+            "1"
+          ],
+          "validatePolicy": [
+            "false"
+          ],
+          "readOnly": [
+            "true"
+          ],
+          "writeOnly": [
+            "false"
+          ]
+        }
+      }
+    ]
+  }
+}

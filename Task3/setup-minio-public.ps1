@@ -1,0 +1,1 @@
+docker exec -it minio sh -c "apk add --no-cache wget && wget -qO /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc && /tmp/mc alias set local http://localhost:9000 minioadmin minioadmin && /tmp/mc anonymous set download local/reports && echo 'Done!'"

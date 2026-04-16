@@ -1,0 +1,22 @@
+{
+  "name": "openldap",
+  "providerId": "ldap",
+  "providerType": "org.keycloak.storage.UserStorageProvider",
+  "parentId": "reports-realm",
+  "config": {
+    "enabled": ["true"],
+    "editMode": ["READ_ONLY"],
+    "vendor": ["other"],
+    "connectionUrl": ["ldap://openldap:389"],
+    "usersDn": ["ou=People,dc=example,dc=com"],
+    "authType": ["simple"],
+    "bindDn": ["cn=admin,dc=example,dc=com"],
+    "bindCredential": ["admin"],
+    "usernameLDAPAttribute": ["uid"],
+    "rdnLDAPAttribute": ["uid"],
+    "uuidLDAPAttribute": ["entryUUID"],
+    "userObjectClasses": ["inetOrgPerson, organizationalPerson"],
+    "importEnabled": ["true"],
+    "searchScope": ["1"]
+  }
+}
